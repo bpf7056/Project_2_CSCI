@@ -115,7 +115,7 @@ def test_model(dataset=dataset, save_dir=save_dir, num_classes=num_classes, lr=l
             preds = torch.max(probs, 1)[1]
 
             videodict=test_data.getlabel2index()
-
+            labels = labels.to(dtype=torch.long)
             loss = criterion(outputs, labels)
             for j in range(len(preds)):
                 result.append([str(preds[j].cpu().numpy()),str(labels[j].cpu().numpy()),test_data.fnames[i*batch_size+j]])

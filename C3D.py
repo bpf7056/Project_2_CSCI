@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from mypath import Path
-
+import torch.nn.functional as f
 
 class C3D(nn.Module):
     """
@@ -42,25 +42,29 @@ class C3D(nn.Module):
             in_channels=256,
             out_channels=512,
             kernel_size=(3,3,3),
-            stride=(1,1,1)
+            stride=(1,1,1),
+            padding=2
         )
         self.conv4b = nn.Conv3d(
             in_channels=512,
             out_channels=512,
             kernel_size=(3,3,3),
-            stride=(1,1,1)
+            stride=(1,1,1),
+            padding=1
         )
         self.conv5a = nn.Conv3d(
             in_channels=512,
             out_channels=512,
             kernel_size=(3,3,3),
-            stride=(1,1,1)
+            stride=(1,1,1),
+            padding=2
         )
         self.conv5b = nn.Conv3d(
             in_channels=512,
             out_channels=512,
             kernel_size=(3,3,3),
-            stride=(1,1,1)
+            stride=(1,1,1),
+            padding=1
         )
         self.fc6 = nn.Linear(
             in_features=8192,
@@ -77,23 +81,28 @@ class C3D(nn.Module):
             in_features=4096,
             out_features=num_classes
         )
+        self.dropout = nn.Dropout(0.50)
 
     def forward(self, x):
         #implement your code here
-        x = self.pool1(self.conv1(x))
-        x = self.pool2(self.conv2(x))
+        x = self.pool1(f.relu(self.conv1(x)))
+        x = self.pool2(f.relu(self.conv2(x)))
 
-        x = self.conv3a(x)
-        x = self.conv3b(x)
+        x = f.relu(self.conv3a(x))
+        x = f.relu(self.conv3b(x))
+        x = self.pool2(x)
+        x = f.relu(self.conv4a(x))
+        x = f.relu(self.conv4b(x))
+
+        x = self.pool2(x)
+        x = f.relu(self.conv5a(x))
+        x = f.relu(self.conv5b(x))
         x = self.pool2(x)
 
-        #x = self.pool2(self.conv4b(self.conv4a(x)))
-
-        #x = self.pool2(self.conv5b(self.conv5a(x)))
-
         x = x.view(x.shape[0], -1)
-
-        x = self.fc6(x)
+        x = self.dropout(x)
+        x = f.relu(self.fc6(x))
+        x = self.dropout(x)
         x = self.fc7(x)
         logits = self.fc8(x)
         return logits
