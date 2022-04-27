@@ -13,6 +13,8 @@ from torch import nn, optim
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
 from dataset import *
+import cv2
+import imageio
 
 # Use GPU if available else revert to CPU
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -102,28 +104,22 @@ def test_model(dataset=dataset, save_dir=save_dir, num_classes=num_classes, lr=l
         running_corrects = 0.0
         result=[]
 
-
         for i, (inputs, labels) in tqdm(enumerate(test_dataloader)):
             inputs = inputs.to(device)
             labels = labels.to(device)
-
-
 
             with torch.no_grad():
                 outputs = model(inputs)
             probs = nn.Softmax(dim=1)(outputs)
             preds = torch.max(probs, 1)[1]
-
             videodict=test_data.getlabel2index()
             labels = labels.to(dtype=torch.long)
             loss = criterion(outputs, labels)
             for j in range(len(preds)):
                 result.append([str(preds[j].cpu().numpy()),str(labels[j].cpu().numpy()),test_data.fnames[i*batch_size+j]])
-
+                makegif(probs,preds,test_data.fnames[i*batch_size+j])
             running_loss += loss.item() * inputs.size(0)
             running_corrects += torch.sum(preds == labels)
-
-
         epoch_loss = running_loss / test_size
         epoch_acc = running_corrects.double() / test_size
         result=np.array(result)
@@ -139,5 +135,26 @@ def test_model(dataset=dataset, save_dir=save_dir, num_classes=num_classes, lr=l
         print("Execution time: " + str(stop_time - start_time) + "\n")
 
     # writer.close()
+
+
+def makegif(probs, preds, param):
+    framelist = []
+    label = torch.max(probs, 1)[1].detach().cpu().numpy()[0]
+    with open('./dataloaders/ucf_labels.txt', 'r') as f:
+        ufc_labels = f.readlines()
+        f.close()
+    for filename in os.listdir(param):
+        frame = cv2.imread(os.path.join(param,filename))
+        cv2.putText(frame, ufc_labels[preds].split(' ')[-1].strip(), (10, 10),
+                    cv2.FONT_HERSHEY_DUPLEX, 0.5,
+                    (0, 0, 255), 1)
+        cv2.putText(frame, "Prob: %.4f" % probs[0][label], (10, 30),
+                    cv2.FONT_HERSHEY_DUPLEX, 0.5,
+                    (0, 0, 255), 1)
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        framelist.append(frame_rgb)
+    cv2.destroyAllWindows()
+    imageio.mimsave('demo1.gif', framelist, fps=10)
+    
 if __name__ == '__main__':
     test_model()
